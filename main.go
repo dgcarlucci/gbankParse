@@ -17,13 +17,6 @@ import (
 	"main.go/models"
 )
 
-const (
-	clientSecret = "your client secret"
-	baseURL      = "https://us.api.blizzard.com/data/wow/item/"
-	locale       = "en_US"
-	namespace    = "static-us"
-)
-
 func main() {
 	var config models.Config
 
