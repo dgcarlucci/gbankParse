@@ -144,6 +144,15 @@ func parseItems(scanner *bufio.Scanner) ([]models.Item, error) {
 		}
 	}
 
+	//some items have the same name so we need to add the count together
+	for i := 0; i < len(items)-1; i++ {
+		for j := i + 1; j < len(items); j++ {
+			if items[i].Info.Name == items[j].Info.Name {
+				items[i].Count += items[j].Count
+				items = append(items[:j], items[j+1:]...)
+			}
+		}
+	}
 	//alphabetize
 	sort.Slice(items, func(i, j int) bool {
 		return items[i].Info.Name < items[j].Info.Name
