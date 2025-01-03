@@ -1,4 +1,7 @@
 {
     "input_file_path": "E:\\Battle.net\\World of Warcraft\\_classic_era_\\WTF\\Account\\ACCOUNTNAME\\SavedVariables\\GBankClassic.lua",
-    "output_file_path": "E:\\tempGBank\\fileOut.csv"
+    "output_file_path": "E:\\tempGBank\\fileOut.csv",
+    "raid_helper_api_key": "RAIDHELPERKEY",
+    "discord_channel":"123212323",
+    "server_id":"1232321232123"
 }
