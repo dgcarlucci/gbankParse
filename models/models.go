@@ -1,10 +1,92 @@
 package models
 
 type Config struct {
-	InputFilePath   string `json:"input_file_path"`
-	OutputDirectory string `json:"output_file_path"`
-	ServerName      string `json:"server_name"`
-	CharacterName   string `json:"character_name"`
+	InputFilePath    string `json:"input_file_path"`
+	OutputDirectory  string `json:"output_file_path"`
+	ServerID         string `json:"server_id"`
+	CharacterName    string `json:"character_name"`
+	DiscordChannel   string `json:"discord_channel"`
+	RaidHelperAPIKey string `json:"raid_helper_api_key"`
+}
+
+/*
+BODY - The body of the embed.
+https://raid-helper.dev/documentation/api
+
+mentions<string> - The roles you want to ping, separate multiple entries with a comma.
+title<object> - The title field of this embed.
+
+	text<string> - The title text.
+	URL<string> - The URL the title will link to.
+
+description<string> - The description for this embed.
+imageURL<string> - The image URL for this embed.
+thumbnailURL<string> - The thumbnail URL for this embed.
+color<string> - The embed hex color.
+fields<array of objects> - The embed fields.
+
+	name<string> - The field name.
+	value<string> - The field value.
+	inline<boolean> - whether the field is to be inline.
+
+author<object> - The author field of this embed.
+
+	name<string> - The name of the author.
+	URL<string> - The URL the author field will point to.
+	iconURL<string> - The URL of an image that will be displayed.
+
+footer<object> - The footer field of this embed.
+
+	text<string> - The footer text.
+	iconURL<string> - The URL of an image that will be displayed.
+*/
+type RaidHelperEmbedMessage struct {
+
+	//Title of the embed
+	Title RaidHelperTitle `json:"title"`
+
+	//Description of the embed
+	Description string `json:"description"`
+
+	//Image URL of the embed
+	ImageURL string `json:"imageURL"`
+
+	//Thumbnail URL of the embed
+	ThumbnailURL string `json:"thumbnailURL"`
+
+	//Hex color of the embed
+	Color string `json:"color"`
+
+	//Fields of the embed
+	Fields []RaidHelperEmbedField `json:"fields"`
+
+	//Author of the embed
+	Author RaidHelperEmbedAuthor `json:"author"`
+
+	//Footer of the embed
+	Footer RaidHelperEmbedFooter `json:"footer"`
+}
+
+type RaidHelperTitle struct {
+	Text string `json:"text"`
+	URL  string `json:"URL"`
+}
+
+type RaidHelperEmbedField struct {
+	Name   string `json:"name"`
+	Value  string `json:"value"`
+	Inline bool   `json:"inline"`
+}
+
+type RaidHelperEmbedAuthor struct {
+	Name    string `json:"name"`
+	URL     string `json:"URL"`
+	IconURL string `json:"iconURL"`
+}
+
+type RaidHelperEmbedFooter struct {
+	Text    string `json:"text"`
+	IconURL string `json:"iconURL"`
 }
 
 /*{

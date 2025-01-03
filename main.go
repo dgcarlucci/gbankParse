@@ -2,12 +2,14 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"regexp"
 	"sort"
 	"strconv"
@@ -31,8 +33,115 @@ func main() {
 	}
 	log.Println(config.CharacterName)
 
-	parseGBankClassicDB(config.InputFilePath, config.OutputDirectory)
+	items, err := parseGBankClassicDB(config.InputFilePath, config.OutputDirectory)
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	getEvents(config)
+	postToDiscord(config, items)
+
+}
+
+// postToDiscord sends a message to the Discord channel
+func postToDiscord(config models.Config, items []models.Item) {
+	url := fmt.Sprintf("https://raid-helper.dev/api/v2/servers/%s/channels/%s/embed", config.ServerID, config.DiscordChannel)
+	payload := buildRaidHelperEmbedMessage(items)
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("Error marshalling JSON payload: %v", err)
+		return
+	}
+
+	//nicely format the json payload
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, jsonPayload, "", "  "); err != nil {
+		log.Printf("Error indenting JSON payload: %v", err)
+		return
+	}
+
+	log.Printf("Sending HTTP request to %s with payload:\n%s", url, prettyJSON.String())
+
+	//test it out with dummy data for now
+	dummyTest := buildRaidHelperEmbedMessageString(items)
+
+	cmd := exec.Command("curl", "--request", "POST", "--url", url,
+		"--header", "Authorization: "+config.RaidHelperAPIKey,
+		"--header", "Content-Type: application/json; charset=utf-8",
+		"--data", dummyTest)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Error sending HTTP request: %v", err)
+		return
+	}
+
+	if strings.Contains(string(output), "error") {
+		log.Printf("Request failed with output: %s", output)
+		return
+	}
+
+	log.Println("Message sent successfully")
+}
+
+func getEvents(config models.Config) {
+	url := fmt.Sprintf("https://raid-helper.dev/api/v3/servers/%s/events", config.ServerID)
+
+	cmd := exec.Command("curl", "--request", "GET", "--url", url,
+		"--header", "Authorization: "+config.RaidHelperAPIKey)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Error sending HTTP request: %v", err)
+		return
+	}
+
+	if strings.Contains(string(output), "error") {
+		log.Printf("Request failed with output: %s", output)
+		return
+	}
+
+	//parse events
+	json.Marshal(output)
+
+	log.Println("Message sent successfully")
+}
+
+// buildRaidHelperEmbedMessage builds the embed message
+func buildRaidHelperEmbedMessage(items []models.Item) models.RaidHelperEmbedMessage {
+
+	embedMessage := models.RaidHelperEmbedMessage{}
+	embedMessage.Title.Text = "Test"
+	embedMessage.Description = "Test"
+	embedMessage.Fields = []models.RaidHelperEmbedField{}
+
+	for _, item := range items {
+		embedMessage.Fields = append(embedMessage.Fields, models.RaidHelperEmbedField{
+			Name:   item.Info.Name,
+			Value:  fmt.Sprintf("%d", item.Count),
+			Inline: true,
+		})
+	}
+
+	return embedMessage
+}
+
+func buildRaidHelperEmbedMessageString(items []models.Item) string {
+	//time in mountain time
+	time := time.Now().Format("2006-01-02-15-04-05 MST")
+
+	itemses := ""
+	for _, item := range items {
+		itemses += `\n` + item.Info.Name + `: ` + strconv.Itoa(item.Count)
+	}
+	output := `{ "title":{ "text": "Wizard Vault"}, "description": "` + itemses + `","footer":{ "text": "` + time + `"}}`
+
+	//print items in a single line
+
+	fmt.Println(output)
+
+	return output
 }
 
 func parseItem(scanner *bufio.Scanner) (models.Item, error) {
@@ -185,18 +294,20 @@ func writeItemsToCSV(items []models.Item, fileOut string) error {
 	return nil
 }
 
-func parseGBankClassicDB(fileIn, fileOut string) error {
+func parseGBankClassicDB(fileIn, fileOut string) (items []models.Item, err error) {
+	items = []models.Item{}
 	file, err := os.Open(fileIn)
 	if err != nil {
-		return err
+		return items, err
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
-	items, err := parseItems(scanner)
+	parsedItems, err := parseItems(scanner)
 	if err != nil {
-		return err
+		return items, err
 	}
+	items = append(items, parsedItems...)
 	log.Printf("found %d items", len(items))
 
-	return writeItemsToCSV(items, fileOut)
+	return items, writeItemsToCSV(items, fileOut)
 }
