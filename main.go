@@ -6,8 +6,10 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"regexp"
@@ -46,42 +48,32 @@ func main() {
 // postToDiscord sends a message to the Discord channel
 func postToDiscord(config models.Config, items []models.Item) {
 	url := fmt.Sprintf("https://raid-helper.dev/api/v2/servers/%s/channels/%s/embed", config.ServerID, config.DiscordChannel)
-	payload := buildRaidHelperEmbedMessage(items)
+	payload := buildRaidHelperEmbedMessageString(items)
 
-	jsonPayload, err := json.Marshal(payload)
+	log.Printf("Sending HTTP request to %s with payload:\n%s", url, payload)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(payload)))
 	if err != nil {
-		log.Printf("Error marshalling JSON payload: %v", err)
+		log.Printf("Error creating HTTP request: %v", err)
 		return
 	}
 
-	//nicely format the json payload
-	var prettyJSON bytes.Buffer
-	if err := json.Indent(&prettyJSON, jsonPayload, "", "  "); err != nil {
-		log.Printf("Error indenting JSON payload: %v", err)
-		return
-	}
+	req.Header.Set("Authorization", config.RaidHelperAPIKey)
+	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 
-	log.Printf("Sending HTTP request to %s with payload:\n%s", url, prettyJSON.String())
-
-	//test it out with dummy data for now
-	dummyTest := buildRaidHelperEmbedMessageString(items)
-
-	cmd := exec.Command("curl", "--request", "POST", "--url", url,
-		"--header", "Authorization: "+config.RaidHelperAPIKey,
-		"--header", "Content-Type: application/json; charset=utf-8",
-		"--data", dummyTest)
-
-	output, err := cmd.CombinedOutput()
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Error sending HTTP request: %v", err)
 		return
 	}
+	defer resp.Body.Close()
 
-	if strings.Contains(string(output), "error") {
-		log.Printf("Request failed with output: %s", output)
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("Request failed with status: %s, output: %s", resp.Status, body)
 		return
 	}
-
 	log.Println("Message sent successfully")
 }
 
@@ -113,16 +105,14 @@ func buildRaidHelperEmbedMessage(items []models.Item) models.RaidHelperEmbedMess
 
 	embedMessage := models.RaidHelperEmbedMessage{}
 	embedMessage.Title.Text = "Test"
-	embedMessage.Description = "Test"
-	embedMessage.Fields = []models.RaidHelperEmbedField{}
 
+	desc := ""
 	for _, item := range items {
-		embedMessage.Fields = append(embedMessage.Fields, models.RaidHelperEmbedField{
-			Name:   item.Info.Name,
-			Value:  fmt.Sprintf("%d", item.Count),
-			Inline: true,
-		})
+
+		desc += `` + item.Info.Name + `: ` + strconv.Itoa(item.Count)
 	}
+
+	embedMessage.Description = desc
 
 	return embedMessage
 }
